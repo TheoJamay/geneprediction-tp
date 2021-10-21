@@ -62,30 +62,67 @@ def get_arguments():
 def read_fasta(fasta_file):
     """Extract the complete genome sequence as a single string
     """
-    pass
+    with open(fasta_file,"r") as fas_file :
+        seq = ""
+        for line in fas_file :
+            if line.startswith(">") :
+                continue
+            else :
+                seq += line.strip()
+        return seq
+
 
 def find_start(start_regex, sequence, start, stop):
     """Find the start codon
     """
-    pass
+    match = start_regex.search(sequence, start, stop)
+    if not match :
+        return None
+    return match.start(0)
 
 
 def find_stop(stop_regex, sequence, start):
     """Find the stop codon
     """
-    pass
+    for match in stop_regex.finditer(sequence, start) :
+        if match.start(0)%3 == 0:
+            return match.start(0)
+    return None
+
 
 def has_shine_dalgarno(shine_regex, sequence, start, max_shine_dalgarno_distance):
     """Find a shine dalgarno motif before the start codon
     """
-    pass
+    match = shine_regex.search(sequence,start-max_shine_dalgarno_distance)
+    if not match :
+        return False
+    if match.end(0) < start-6 :
+        return True
+    return False
+    
 
 def predict_genes(sequence, start_regex, stop_regex, shine_regex, 
                   min_gene_len, max_shine_dalgarno_distance, min_gap):
     """Predict most probable genes
     """
-    pass
-
+    predict_g = []
+    pos_c = 0
+    while((len(sequence)-pos_c)>=min_gap) :
+        pos_c = find_start(start_regex, sequence, pos_c, len(sequence))
+        if pos_c is not None :
+            stop = find_stop(stop_regex, sequence, pos_c)
+            if stop is not None :
+                if len(sequence[pos_c:stop]) > min_gene_len :
+                    if has_shine_dalgarno(shine_regex, sequence, pos_c, max_shine_dalgarno_distance) :
+                        predict_g.append([pos_c,stop])
+                        pos_c = stop + min_gap
+                    else :
+                        pos_c = stop + 1
+                else :
+                    pos_c = stop + 1
+            else :
+                pos_c = stop + 1
+    return predict_g
 
 def write_genes_pos(predicted_genes_file, probable_genes):
     """Write list of gene positions
@@ -147,7 +184,13 @@ def main():
     # Arguments
     args = get_arguments()
     # Let us do magic in 5' to 3'
-    
+    sequence = read_fasta(args.genome_file)
+    #regexp_object = re.compile(“myregex”)
+    start = find_start(start_regex, sequence, 0, len(sequence))
+    find_stop(stop_regex, sequence, start)
+    has_shine_dalgarno(shine_regex, sequence, start-6, args.max_shine_dalgarno_distance)
+    predict_g = predict_genes(sequence, start_regex, stop_regex, shine_regex, 
+                  args.min_gene_len, args.max_shine_dalgarno_distance, args.min_gap)
     # Don't forget to uncomment !!!
     # Call these function in the order that you want
     # We reverse and complement
